@@ -1,58 +1,72 @@
 import { useEffect, useState } from "react";
 import Web3 from "web3";
+import { AbiItem } from 'web3-utils'
 
-export const useWeb3 = () => {
-    const [web3, setWeb3] = useState<Web3>();
-    const [provider, setProvider] = useState<any>();
-    const [activeAccount, setActiveAccount] = useState<string>();
-    const [isConnected, setIsConnected] = useState<boolean>(false);
+export let web3: Web3;
 
-    const getProvider = () => {
-        const provider = (window as any).ethereum;
+export const getProvider = () => {
+    const provider = (window as any).ethereum;
 
-        // check if metamask is installed
-        if(!provider) {
-            throw new Error("Metamask not installed on the browser.");
-        }
-    
-        return provider;
+    // check if metamask is installed
+    if(!provider) {
+        throw new Error("Metamask not installed on the browser.");
     }
 
-    const initializeWeb3 = () => { 
-        const web3Provider = getProvider();
-        const web3Instance = new Web3(web3Provider);
-        setProvider(web3Provider);
-        setWeb3(new Web3(web3Provider));
+    return provider;
+};
 
+const getWeb3 = (): Web3 => {
+    if(web3) return web3;
+    return new Web3(getProvider());
+};
+web3 = getWeb3();
+
+export const useWeb3 = () => {
+    const [activeAccount, setActiveAccount] = useState<string>();
+    const [isConnected, setIsConnected] = useState<boolean>(false);
+    const [chainId, setChainId] = useState<number>();
+
+    const initializeWeb3 = () => { 
         // check if user is already connected.
-        web3Instance.eth.getAccounts()
-        .then((accounts) => {
+        web3.eth.getAccounts()
+        .then(async(accounts) => {
             if(accounts.length) {
                 setIsConnected(true);
                 setActiveAccount(accounts[0]);
+                const networkId = await web3.eth.getChainId();
+                setChainId(web3.utils.toDecimal(networkId));
             }
         });
 
-        registerEvents(web3Provider);
+        registerEvents();
     };
 
     const connectWallet = async() => {
-        const account = await web3?.eth.requestAccounts();
+        const account = await web3.eth.requestAccounts();
+        const networkId = await web3.eth.getChainId();
+
         if(!account?.length) throw new Error("could not find any accounts in wallet.");
+
         setActiveAccount(account[0]);
         setIsConnected(true);
+        setChainId(web3.utils.toDecimal(networkId));
     };
 
 
-    const registerEvents = (provider: any) => {
+    const registerEvents = () => {
+        const provider = getProvider();
         provider.on("accountsChanged", (accounts: string[]) => {
             setActiveAccount(accounts[0]);
         });
 
-        provider.on('chainChanged', () => {
-            window.location.reload();
+        provider.on('chainChanged', (chainId: number) => {
+            setChainId(web3.utils.toDecimal(chainId));
         });
     };
+
+    const createContract = (abi: AbiItem[], contractAddress: string) => {
+        return new web3.eth.Contract(abi, contractAddress);
+    }
 
     useEffect(() => {
         initializeWeb3();
@@ -60,11 +74,11 @@ export const useWeb3 = () => {
     },[]);
 
     return {
-        web3,
-        provider,
         activeAccount,
         isConnected,
+        chainId,
         setIsConnected,
-        connectWallet
+        connectWallet,
+        createContract
     }
 };
