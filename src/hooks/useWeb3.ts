@@ -19,6 +19,7 @@ const getWeb3 = (): Web3 => {
     if(web3) return web3;
     return new Web3(getProvider());
 };
+
 web3 = getWeb3();
 
 export const useWeb3 = () => {
@@ -50,6 +51,7 @@ export const useWeb3 = () => {
         setActiveAccount(account[0]);
         setIsConnected(true);
         setChainId(web3.utils.toDecimal(networkId));
+        window.location.reload();
     };
 
 
